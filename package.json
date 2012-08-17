@@ -1,0 +1,13 @@
+{
+  "main": "index.html",
+  "name": "Book Reader",
+  "description": "Book Reader",
+  "version": "0.1",
+  "window": {
+    "toolbar": false,
+    "position": "mouse"
+  },
+  "webkit": {
+    "webgl-disabled": true
+  }
+}
