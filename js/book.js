@@ -2,10 +2,7 @@ function book_source() {
     this.book = '';
     this.books = {};
     this.sites = {};
-    this.proxy = {
-        host: '127.0.0.1',
-        port: 8080
-    };
+    this.config = {};
     this.show = function(url, title) {
         $('#panel').html('<a href="javascript:book.showBookPage();">目录</a>');
         $.get(url, function(data){
@@ -45,7 +42,7 @@ function book_source() {
 
     this.showBookList = function(){
         //TODO: Add configure page here
-        $('#panel').html('');
+        $('#panel').html('<a href="javascript:book.showConfigure();">配置</a>');
         // List all books
         $('#result').html('<h1 align="center">书籍列表</h1><hr>');
         for (var b in this.books) {
@@ -55,20 +52,54 @@ function book_source() {
         }
     };
 
+    this.showConfigure = function(){
+        $('#panel').html('<a href="javascript:book.showBookList();">书柜</a>');
+        $('#result').html('<h1 align="center">配置</h1><hr><h2>代理</h2><br>' +
+                          '<lable for="proxy_host">主机:</lable><input type="text" id="proxy_host" />' +
+                          '<lable for="proxy_port">端口:</lable><input type="text" id="proxy_port" />' +
+                          '<br><input type="button" onclick="book.saveConfigure()" value="保存"></button>');
+        $('#proxy_host').val(this.config['host'] || '');
+        $('#proxy_port').val(this.config['port'] || '');
+    };
+
+    this.saveConfigure = function(){
+        var host = $('#proxy_host').val();
+        var port = $('#proxy_port').val().replace(/[^\d]+/g, '');
+        port = parseInt(port, 10);
+        this.config['host'] = host;
+        this.config['port'] = port;
+
+        this.fs.writeFile(this.config_json, JSON.stringify(this.config), function(err) {
+            if (err) {
+                console.log(err.message);
+                throw err;
+            }
+        });
+        this.showBookList();
+    };
+
     this.init = function() {
         this.fs = require('fs');
         var home = process.env[(process.platform == 'win32') ? 'USERPROFILE' : 'HOME'];
         this.books_json = home+'/Documents/books/books.json';
         this.books_root = home+'/Documents/books';
         this.sites_root = 'site';
+        this.config_json = this.books_root + '/config.json';
         if (!this.fs.existsSync(this.books_json)) {
             if (!this.fs.existsSync(this.books_root)) {
                 this.fs.mkdirSync(this.books_root);
             }
             this.fs.writeFileSync(this.books_json, '{}');
         }
+
         var json = this.fs.readFileSync(this.books_json);
         this.books = eval('('+json+')');
+
+        if (!this.fs.existsSync(this.config_json)) {
+            this.fs.writeFileSync(this.config_json, '{}');
+        }
+        json = this.fs.readFileSync(this.config_json);
+        this.config = eval('('+json+')');
         
         var files = this.fs.readdirSync(this.sites_root);
         for (var i in files) {
@@ -93,10 +124,10 @@ function book_source() {
 
         var file_name = url.parse(file_url).pathname.split('/').pop();
         var options;
-        if (this.proxy['host']) {
+        if (this.config['host']) {
             options = {
-                host: this.proxy['host'],
-                port: this.proxy['port'],
+                host: this.config['host'],
+                port: this.config['port'],
                 path: file_url
             };
         } else {
@@ -165,5 +196,4 @@ $(document).ready(function(){
         'site': 'zwwx',
         'url': 'http://www.zwwx.com/book/3/3730/index.html'
     });
-    //window.book.chooseBook('zwwx');
 });
