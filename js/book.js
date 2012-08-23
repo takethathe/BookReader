@@ -7,11 +7,13 @@ function book_source() {
         port: 8080
     };
     this.show = function(url, title) {
-        this.download_page(url, function(data){
+        $('#panel').html('<a href="javascript:book.showBookPage();">目录</a>');
+        $.get(url, function(data){
             var data_ = $(data);
             var text = $('#content', data_).text();
-            $('#result').html(title+'<br>');
-            $('#result').html(text+'<br>');
+            $('#result').html('<h1 align="center">' +
+                              title + '</h1><hr>');
+            $('#result').append(text + '<br>');
             $('div.divimage img', data_).each(function(i, item){
                 var src = $(item).attr('src');
                 $('#result').append('<img src="'+src+'">');
@@ -19,12 +21,15 @@ function book_source() {
         });
     };
 
-    this.run = function(){
+    this.showBookPage = function(){
         var book_info = this.books[this.book];
         var site_info = this.sites[book_info['site']];
+        $('#panel').html('<a href="javascript:book.showBookList();">书柜</a>');
         if (book_info) {
             var addItem_cb = this.addItem;
-            this.download_page(book_info.url, function(data){
+            $('#result').html('<h1 align="center">' +
+                              book_info.name + '</h1><hr>');
+            $.get(book_info.url, function(data){
                 site_info.getItem(data, book_info, addItem_cb);
             });
         } else {
@@ -36,6 +41,18 @@ function book_source() {
         $('#result').append('<dd><a href="javascript:book.show(\''+
                             item.link+'\',\''+item.title+'\');">'+
                             item.title+'</a></dd>');
+    };
+
+    this.showBookList = function(){
+        //TODO: Add configure page here
+        $('#panel').html('');
+        // List all books
+        $('#result').html('<h1 align="center">书籍列表</h1><hr>');
+        for (var b in this.books) {
+            $('#result').append('<dd><a href="javascript:book.chooseBook(\'' +
+                                this.books[b].name + '\');">' +
+                                this.books[b].name + '</a></dd>');
+        }
     };
 
     this.init = function() {
@@ -59,6 +76,7 @@ function book_source() {
             var site = eval('('+file+')');
             this.sites[site['name']] = site;
         }
+        this.showBookList();
     };
 
     this.download = function(file_url, path) {
@@ -121,6 +139,7 @@ function book_source() {
 
     this.chooseBook = function(name) {
         this.book = name;
+        this.showBookPage();
     };
 
     this.flushBookList = function() {
@@ -137,24 +156,14 @@ function book_source() {
     };
 }
 
-book_source.prototype.download_page = function(url, success) {
-    $.get(url, function(data){
-        success(data);
-    });
-};
-
 $(document).ready(function(){
     window.book = new book_source();
     window.book.init();
     window.book.addBook({
         'name': 'zwwx',
-        'css': 'zwwx.css',
-        'js': 'zwwx.js',
         'id': '3730',
         'site': 'zwwx',
         'url': 'http://www.zwwx.com/book/3/3730/index.html'
     });
-    window.book.chooseBook('zwwx');
-    window.book.run();
-    window.book.download('http://www.hacksparrow.com/wp-content/themes/hacksparrow/images/logo.png', window.book.books_root+'/');
+    //window.book.chooseBook('zwwx');
 });
