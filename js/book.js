@@ -2,6 +2,10 @@ function book_source() {
     this.book = '';
     this.books = {};
     this.sites = {};
+    this.proxy = {
+        host: '127.0.0.1',
+        port: 8080
+    };
     this.show = function(url, title) {
         this.download_page(url, function(data){
             var data_ = $(data);
@@ -57,36 +61,58 @@ function book_source() {
         }
     };
 
-    this.download = function(from, to) {
-        var fs = this.fs; 
+    this.download = function(file_url, path) {
+        var fs = this.fs, 
+        url = require('url'),
         http = require("http"),
-        url = require("url");
-        
-        var url_parse = url.parse(from);
-        var host = url_parse.hostname
-        var path = url_parse.pathname;
+        https = require("https"),
+        download_func = this.download;
 
-        var req = http.request(
-            {host: host,
-             port: 80,
-             path: path,
-             method: 'GET'
-            }, function(res){
-                console.log('Start Download File: '+from);
-                var downloadfile = fs.createWriteStream(to, {'flags': 'a'});
-                res.on('data', function (chunk) {
-                    downloadfile.write(chunk, encoding='binary');
+        var http_or_https = http;
+        if (/^https:\/\/(\w+:{0,1}\w*@)?(\S+)(:[0-9]+)?(\/|\/([\w#!:.?+=&%@!\-\/]))?$/.test(url)) {
+            http_or_https = https;
+        }
+
+        var file_name = url.parse(file_url).pathname.split('/').pop();
+        var options;
+        if (this.proxy['host']) {
+            options = {
+                host: this.proxy['host'],
+                port: this.proxy['port'],
+                path: file_url
+            };
+        } else {
+            options = {
+                host: url.parse(file_url).host,
+                port: 80,
+                path: url.parse(file_url).pathname
+            };
+        }
+
+        http_or_https.get(options, function(response) {
+            switch(response.statusCode) {
+            case 200:
+                var file = fs.createWriteStream(path + file_name);
+                response.on('data', function(chunk){
+                    file.write(chunk);
+                }).on('end', function(){
+                    file.end();
+                    console.log(file_name + ' downloaded to ' + path);
                 });
-                res.on("end", function() {
-                    downloadfile.end();
-                });
-            });
-        req.on('error', function(e){
-            console.log('Error: ' + e.message);
+                break;
+            case 301:
+            case 302:
+            case 303:
+            case 307:
+                download_func(response.headers.location, path);
+                break;
+            default:
+                console.log('Server responded with status code ' + response.statusCode);
+            }
+        }).on('error', function(err){
+            console.log(err.message);
         });
-        req.end();
-
-    }
+    };
 
     this.addBook = function(book_info) {
         this.books[book_info['name']] = book_info;
@@ -104,7 +130,7 @@ function book_source() {
         }
         this.fs.writeFile(this.books_json, book_json, function(err){
             if (err) {
-                alert(err);
+                console.log(err.message);
                 throw err;
             }
         });
@@ -130,5 +156,5 @@ $(document).ready(function(){
     });
     window.book.chooseBook('zwwx');
     window.book.run();
-    window.book.download('http://www.hacksparrow.com/wp-content/themes/hacksparrow/images/logo.png', window.book.books_root+'/aaa.png');
+    window.book.download('http://www.hacksparrow.com/wp-content/themes/hacksparrow/images/logo.png', window.book.books_root+'/');
 });
