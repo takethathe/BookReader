@@ -3,45 +3,87 @@ function book_source() {
     this.books = {};
     this.sites = {};
     this.config = {};
-    this.show = function(url, title) {
-        $('#panel').html('<a href="javascript:book.showBookPage();">目录</a>');
-        $.get(url, function(data){
-            var data_ = $(data);
-            var text = $('#content', data_).text();
-            $('#result').html('<h1 align="center">' +
-                              title + '</h1><hr>');
-            $('#result').append(text + '<br>');
-            $('div.divimage img', data_).each(function(i, item){
-                var src = $(item).attr('src');
-                $('#result').append('<img src="'+src+'">');
-            });
-        });
-    };
-
-    this.showBookPage = function(){
+    this.book_index = {};
+    this.showBookPage = function(title) {
         var book_info = this.books[this.book];
         var site_info = this.sites[book_info['site']];
-        $('#panel').html('<a href="javascript:book.showBookList();">书柜</a>');
+        var page_info = this.book_index[title];
+        $('#panel').html('<a href="javascript:book.showBookIndex();">目录</a>');
+        if (page_info['downloaded']) {
+            var contents = this.fs.readFileSync(this.books_root + '/' + book_info['site'] + '/' +
+                                                book_info['name']);
+            $('#result').html(contents);
+        } else {
+            site_info.parsePage(page_info['url'], function (page) {
+                $('#result').html('<h1 align="center">' +
+                                  title + '</h1><hr>');
+                $('#result').append(page.text + '<br>');
+                for (var i in page['images']) {
+                    var src = page['images'][i];
+                    $('#result').append('<img src="'+src+'">');
+                }
+            });
+        }
+    };
+
+    this.updateBookIndex = function(){
+        var book_info = this.books[this.book];
+        var site_info = this.sites[book_info['site']];
         if (book_info) {
-            var addItem_cb = this.addItem;
+            var book_index = this.book_index;
+            var books_root = this.books_root;
+            var fs = this.fs;
+            var modified = false;
+            $.get(book_info.url, function(data){
+                site_info.getItem(data, book_info, function(i, size, item){
+                    if (!book_index.hasOwnProperty(item.title)) {
+                        book_index[item.title] = {
+                            'url': item.link
+                        };
+                        $('#result').append('<dd><a href="javascript:book.showBookPage(\''+item.title+'\');">'+
+                                            item.title+'</a></dd>');
+                        modified = true;
+                    }
+                    if (i == size-1 && modified) {
+                        var book_index_file = books_root + '/' + 
+                            book_info['site'] + '/' + book_info['name'] + '/index.json';
+                        var book_index_content = JSON.stringify(book_index);
+                        fs.writeFileSync(book_index_file, book_index_content);
+                    }
+                });
+            });
+        }
+    };
+
+    this.showBookIndex = function(){
+        var book_info = this.books[this.book];
+        var site_info = this.sites[book_info['site']];
+        $('#panel').html('<a href="javascript:book.showBookList();">书柜</a>' +
+                        '<a href="javascript:book.updateBookIndex();">更新</a>');
+        if (book_info) {
             $('#result').html('<h1 align="center">' +
                               book_info.name + '</h1><hr>');
-            $.get(book_info.url, function(data){
-                site_info.getItem(data, book_info, addItem_cb);
-            });
+            for (var title in this.book_index) {
+                $('#result').append('<dd><a href="javascript:book.showBookPage(\'' +
+                                    title + '\');">' + title + '</a></dd>');
+            }
         } else {
             alert('Can not find '+this.book);
         }
     };
 
     this.addItem = function(item) {
-        $('#result').append('<dd><a href="javascript:book.show(\''+
-                            item.link+'\',\''+item.title+'\');">'+
-                            item.title+'</a></dd>');
+        console.log(this.book_index);
+        if (!this.book_index.hasOwnProperty(item.title)) {
+            this.book_index[item.title] = {
+                'url': item.link
+            };
+            $('#result').append('<dd><a href="javascript:book.showBookPage(\''+item.title+'\');">'+
+                                item.title+'</a></dd>');
+        }
     };
 
     this.showBookList = function(){
-        //TODO: Add configure page here
         $('#panel').html('<a href="javascript:book.showConfigure();">配置</a>');
         // List all books
         $('#result').html('<h1 align="center">书籍列表</h1><hr>');
@@ -165,12 +207,41 @@ function book_source() {
 
     this.addBook = function(book_info) {
         this.books[book_info['name']] = book_info;
+        var book_site_dir = this.books_root + '/' + book_info['site'];
+        if (!this.fs.existsSync(book_site_dir)) {
+            this.fs.mkdirSync(book_site_dir);
+        }
+        var book_dir = book_site_dir + '/' + book_info['name'];
+        if (!this.fs.existsSync(book_dir)) {
+            this.fs.mkdirSync(book_dir);
+        }
         this.flushBookList();
     };
 
     this.chooseBook = function(name) {
-        this.book = name;
-        this.showBookPage();
+        var book_info;
+        var book_index_file;
+        if (this.book != name) {
+            if (this.book != '') {
+                book_info = this.books[this.book];
+                book_index_file = this.books_root + '/' + 
+                    book_info['site'] + '/' + book_info['name'] + '/index.json';
+                var book_index_content = JSON.stringify(this.book_index);
+                this.fs.writeFileSync(book_index_file, book_index_content);
+            }
+
+            this.book = name;
+
+            book_info = this.books[this.book];
+            book_index_file = this.books_root + '/' + 
+                book_info['site'] + '/' + book_info['name'] + '/index.json';
+            this.book_index = {};
+            if (this.fs.existsSync(book_index_file)) {
+                var json = this.fs.readFileSync(book_index_file);
+                this.book_index = eval('(' + json + ')');
+            }
+        }
+        this.showBookIndex();
     };
 
     this.flushBookList = function() {

@@ -2,13 +2,30 @@
     'name': 'zwwx',
     'getItem': function(data, book_info, addItem) {
         var data_ = $(data);
+        var size = $('dd a', data_).size();
         $('dd a', data_).each(function(i, item){
             var link = 'http://www.zwwx.com/book/3/'+book_info['id']+'/'+$(item).attr('href');
             var title = $(item).text();
-            addItem({
+            addItem(i, size, {
                 'link':link,
                 'title':title,
             });
+        });
+    },
+    'parsePage': function(url, cb) {
+        var ret = {
+            'images': [],
+        };
+        $.get(url, function(data){
+            var data_ = $(data);
+            ret['text'] = $('#content', data_).text();
+            $('div.divimage img', data_).each(function(i, item){
+                var src = $(item).attr('src');
+                if (src && src != '') {
+                    ret['images'].push(src);
+                }
+            });
+            cb(ret);
         });
     }
 }
