@@ -54,10 +54,10 @@ function book_source() {
 
     this.showConfigure = function(){
         $('#panel').html('<a href="javascript:book.showBookList();">书柜</a>');
-        $('#result').html('<h1 align="center">配置</h1><hr><h2>代理</h2><br>' +
+        $('#result').html('<h1 align="center">配置</h1><hr><h3>代理</h3><br>' +
                           '<lable for="proxy_host">主机:</lable><input type="text" id="proxy_host" />' +
                           '<lable for="proxy_port">端口:</lable><input type="text" id="proxy_port" />' +
-                          '<br><input type="button" onclick="book.saveConfigure()" value="保存"></button>');
+                          '<hr><input type="button" onclick="book.saveConfigure()" value="保存"></button>');
         $('#proxy_host').val(this.config['host'] || '');
         $('#proxy_port').val(this.config['port'] || '');
     };
