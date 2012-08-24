@@ -3,6 +3,7 @@ function book_source() {
     this.books = {};
     this.sites = {};
     this.config = {};
+    this.search = {};
     this.showBookPage = function(title) {
         var book_info = this.books[this.book];
         var site_info = this.sites[book_info['site']];
@@ -36,6 +37,28 @@ function book_source() {
             });
         }
     };
+
+    this.searchBook = function() {
+        var text = $('#search_text').val();
+        //console.log('Search Book '+text);
+        $('#result').html('<h1 align="center">搜索结果</h1><hr>');
+        var search_results = this.search;
+        for (var site in this.sites) {
+            this.sites[site].searchBook(text, function(book_info){
+                search_results[book_info['name']] = book_info;
+                $('#result').append('<dd><a href="javascript:book.addBookFromSearch(\'' +
+                                    book_info['name']+ '\');">'+ 
+                                    book_info['name'] + ' -- ' +
+                                    book_info['site'] +'</a></dd>');
+            });
+        }
+    };
+
+    this.addBookFromSearch = function(title) {
+        var book_info = this.search[title];
+        this.addBook(book_info);
+        this.showBookList();
+    }
 
     this.getTitleById = function(id, book_info) {
         var ret = '';
@@ -156,7 +179,9 @@ function book_source() {
     };
 
     this.showBookList = function(){
-        $('#panel').html('<a href="javascript:book.showConfigure();">配置</a>');
+        $('#panel').html('<a href="javascript:book.showConfigure();">配置</a><span> | </span>' +
+                         '<input type="text" id="search_text" />' +
+                         '<input type="button" onclick="book.searchBook()" value="搜索" />');
         // List all books
         $('#result').html('<h1 align="center">书籍列表</h1><hr>');
         for (var b in this.books) {
@@ -171,7 +196,7 @@ function book_source() {
         $('#result').html('<h1 align="center">配置</h1><hr><h3>代理</h3><br>' +
                           '<lable for="proxy_host">主机:</lable><input type="text" id="proxy_host" />' +
                           '<lable for="proxy_port">端口:</lable><input type="text" id="proxy_port" />' +
-                          '<hr><input type="button" onclick="book.saveConfigure()" value="保存"></button>');
+                          '<hr><input type="button" onclick="book.saveConfigure()" value="保存" />');
         $('#proxy_host').val(this.config['host'] || '');
         $('#proxy_port').val(this.config['port'] || '');
     };
@@ -357,16 +382,4 @@ function book_source() {
 $(document).ready(function(){
     window.book = new book_source();
     window.book.init();
-    window.book.addBook({
-        'name': 'zwwx',
-        'id': '3/3730',
-        'site': 'zwwx',
-        'url': 'http://www.zwwx.com/book/3/3730/index.html'
-    });
-    window.book.addBook({
-        'name': '华山仙门',
-        'id': '5/5423',
-        'site': 'zwwx',
-        'url': 'http://www.zwwx.com/book/5/5423/index.html'
-    });
 });

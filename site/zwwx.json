@@ -4,7 +4,7 @@
         var data_ = $(data);
         var size = $('dd a', data_).size();
         $('dd a', data_).each(function(i, item){
-            var link = 'http://www.zwwx.com/book/'+book_info['id']+'/'+$(item).attr('href');
+            var link = 'http://www.zwwx.com/book/'+book_info['id']+$(item).attr('href');
             var title = $(item).text();
             addItem(i, size, {
                 'link':link,
@@ -27,5 +27,37 @@
             });
             cb(ret);
         });
-    }
+    },
+    'searchBook': function(text, cb) {
+        var searchUrl = 'http://wap.zwwx.com/article/search.php?action=search&searchtype=articlename&searchkey=' + text;
+        $.post(searchUrl, function(data){
+            var data_ = $(data);
+            if ($('card', data_).attr('title').indexOf('搜索结果') != -1) {
+                $('a[href*="articleinfo.php"]', data_).each(function(i, item){
+                    var name = $(item).text();
+                    name = name.substring(name.indexOf('《')+1, name.indexOf('》'));
+                    var href = $(item).attr('href');
+                    var id = href.split('?').pop().split('=').pop();
+                    href = 'http://www.zwwx.com/bookid/'+id;
+                    $.get(href, function(d){
+                        var d_ = $(d);
+                        $('a[href*="http://www.zwwx.com/book/"]', d_).each(function(i, item){
+                            if ($(item).text() == name) {
+                                var new_id = $(item).attr('href').substring(25);
+                                if (new_id != id) {
+                                    id = new_id;
+                                    cb({
+                                        name: name,
+                                        id: id,
+                                        site: 'zwwx',
+                                        url: 'http://www.zwwx.com/book/'+ id + 'index.html'
+                                    });
+                                }
+                            }
+                        });
+                    });
+                });
+            }
+        });
+    },
 }
