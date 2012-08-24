@@ -4,7 +4,7 @@
         var data_ = $(data);
         var size = $('dd a', data_).size();
         $('dd a', data_).each(function(i, item){
-            var link = 'http://www.zwwx.com/book/3/'+book_info['id']+'/'+$(item).attr('href');
+            var link = 'http://www.zwwx.com/book/'+book_info['id']+'/'+$(item).attr('href');
             var title = $(item).text();
             addItem(i, size, {
                 'link':link,

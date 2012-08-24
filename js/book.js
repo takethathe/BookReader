@@ -7,11 +7,23 @@ function book_source() {
         var book_info = this.books[this.book];
         var site_info = this.sites[book_info['site']];
         var page_info = book_info['index'][title];
-        $('#panel').html('<a href="javascript:book.showBookIndex();">目录</a>');
+        $('#panel').html('<a href="javascript:book.showBookIndex();">目录</a><span> | </span>' +
+                         '<a href="javascript:book.redumpBookPage(\'' + title + '\');">下载</a>');
+        if (typeof page_info['id'] != 'undefined') {
+            var id = page_info['id'];
+            // Add navigator
+            var pre = this.getTitleById(id-1, book_info);
+            var next = this.getTitleById(id+1, book_info);
+            if (pre.length > 0)
+                $('#panel').append('<span> | </span><a href="javascript:book.showBookPage(\'' +
+                                   pre + '\');">上一页</a>');
+            if (next.length > 0)
+                $('#panel').append('<span> | </span><a href="javascript:book.showBookPage(\'' +
+                                   next + '\');">下一页</a>');
+        }
         if (page_info['downloaded']) {
-            var contents = this.fs.readFileSync(this.books_root + '/' + book_info['site'] + '/' +
-                                                book_info['name'] + '/' + title);
-            $('#result').html(contents);
+            var contents = this.fs.readFileSync(page_info['dumped']);
+            $('#result').html(contents.toString());
         } else {
             site_info.parsePage(page_info['url'], function (page) {
                 $('#result').html('<h1 align="center">' +
@@ -25,20 +37,39 @@ function book_source() {
         }
     };
 
-    this.dumpBookPage = function(book_info, title) {
-        var url = require('url');
-        var page_info = book_info['index'][title];
+    this.getTitleById = function(id, book_info) {
+        var ret = '';
+        var index_info = book_info['index'];
+        if (id <= 0)
+            return ret;
+
+        for (var title in index_info) {
+            if (index_info[title]['id'] == id) {
+                ret = title;
+                break;
+            }
+        }
+        return ret;
+    };
+
+    this.redumpBookPage = function(title) {
+        var book_info = this.books[this.book];
         var site_info = this.sites[book_info['site']];
-        var page_file = this.books_root + '/' + book_info['site'] + '/' +
-            book_info['name'] + '/' + title;
+        var path_root = this.books_root + '/' + book_info['site'] + '/' + book_info['name'] + '/';
+        var book_read = this;
+        this.dumpBookPage(book_info, site_info, path_root, title, book_read);
+    };
+
+    this.dumpBookPage = function(book_info, site_info, path_root, title, book_read) {
+        var url = require('url');
+        var fs = book_read.fs;
+        var page_file = path_root + title.replace(/ /g, '');
         var content = '<h1 align="center">' + title + '</h1><hr>';
-        var download_func = this.download;
-        var fs = this.fs;
-        var path = this.books_root + '/' + book_info['site'] + '/' +
-            book_info['name'] + '/images/';
+        var path = path_root + 'images/';
+        var page_info = book_info['index'][title];
         site_info.parsePage(page_info['url'], function (page){
             if (page.text) {
-                content += page.text + '<br>';
+                content += '<div>' + page.text + '</div><br>';
             }
             for (var i in page['images']) {
                 var src = page['images'][i];
@@ -46,9 +77,19 @@ function book_source() {
                 if (!fs.existsSync(path)) {
                     fs.mkdirSync(path);
                 }
-                download_func(src, path);
+                book_read.download(src, path, book_read);
                 page['images'][i] = path + file_name;
+                content += '<img src="' + path + file_name + '">';
             }
+            fs.writeFile(page_file, content, function(err){
+                if (err) {
+                    console.log(err.message);
+                    throw err;
+                }
+                page_info.downloaded = true;
+                page_info.dumped = page_file;
+                book_read.flushBookIndex(book_info, path_root+'index.json');
+            });
         });
     };
 
@@ -61,17 +102,21 @@ function book_source() {
             var fs = this.fs;
             var modified = false;
             var dumpBookPage_func = this.dumpBookPage;
+            var download_func = this.download;
+            var path_root = this.books_root + '/' + book_info['site'] + '/' + book_info['name'] + '/';
+            var book_read = this;
             $.get(book_info.url, function(data){
                 site_info.getItem(data, book_info, function(i, size, item){
                     if (!book_index.hasOwnProperty(item.title)) {
                         book_index[item.title] = {
-                            'url': item.link
+                            'url': item.link,
+                            'id': i
                         };
                         if (update_index) {
                             $('#result').append('<dd><a href="javascript:book.showBookPage(\''+item.title+'\');">'+
                                                 item.title+'</a></dd>');
                         }
-                        dumpBookPage_func(book_info, item.title);
+                        dumpBookPage_func(book_info, site_info, path_root, item.title, book_read);
                         modified = true;
                     }
                     if (i == size-1 && modified) {
@@ -95,7 +140,7 @@ function book_source() {
         var book_info = this.books[this.book];
         var site_info = this.sites[book_info['site']];
         var book_index = book_info['index'];
-        $('#panel').html('<a href="javascript:book.showBookList();">书柜</a>|' +
+        $('#panel').html('<a href="javascript:book.showBookList();">书柜</a><span> | </span>' +
                         '<a href="javascript:book.updateBookIndex(\'' +
                          this.book + '\', true);">更新</a>');
         if (book_info) {
@@ -179,12 +224,12 @@ function book_source() {
         this.showBookList();
     };
 
-    this.download = function(file_url, path) {
-        var fs = this.fs, 
+    this.download = function(file_url, path, book_read) {
+        var fs = book_read.fs, 
         url = require('url'),
         http = require("http"),
         https = require("https"),
-        download_func = this.download;
+        download_func = book_read.download;
 
         var http_or_https = http;
         if (/^https:\/\/(\w+:{0,1}\w*@)?(\S+)(:[0-9]+)?(\/|\/([\w#!:.?+=&%@!\-\/]))?$/.test(url)) {
@@ -193,10 +238,10 @@ function book_source() {
 
         var file_name = url.parse(file_url).pathname.split('/').pop();
         var options;
-        if (this.config['host']) {
+        if (book_read.config['host']) {
             options = {
-                host: this.config['host'],
-                port: this.config['port'],
+                host: book_read.config['host'],
+                port: book_read.config['port'],
                 path: file_url
             };
         } else {
@@ -295,6 +340,18 @@ function book_source() {
             }
         });
     };
+
+    this.flushBookIndex = function(book_info, index_path) {
+        var book_index = book_info['index'];
+        var book_index_content = JSON.stringify(book_index);
+        var fs = require('fs');
+        fs.writeFile(index_path, book_index_content, function(err){
+            if (err) {
+                console.log(err.message);
+                throw err;
+            }
+        });
+    };
 }
 
 $(document).ready(function(){
@@ -302,8 +359,14 @@ $(document).ready(function(){
     window.book.init();
     window.book.addBook({
         'name': 'zwwx',
-        'id': '3730',
+        'id': '3/3730',
         'site': 'zwwx',
         'url': 'http://www.zwwx.com/book/3/3730/index.html'
+    });
+    window.book.addBook({
+        'name': '华山仙门',
+        'id': '5/5423',
+        'site': 'zwwx',
+        'url': 'http://www.zwwx.com/book/5/5423/index.html'
     });
 });
