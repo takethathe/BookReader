@@ -4,6 +4,7 @@ function book_source() {
     this.sites = {};
     this.config = {};
     this.search = {};
+    this.showPage = false;
     this.showBookPage = function(title) {
         var book_info = this.books[this.book];
         var site_info = this.sites[book_info['site']];
@@ -21,6 +22,7 @@ function book_source() {
             if (next.length > 0)
                 $('#panel').append('<span> | </span><a href="javascript:book.showBookPage(\'' +
                                    next + '\');">下一页</a>');
+            this.showPage = true;
         }
         if (page_info['downloaded']) {
             var contents = this.fs.readFileSync(page_info['dumped']);
@@ -40,6 +42,7 @@ function book_source() {
 
     this.searchBook = function() {
         var text = $('#search_text').val();
+        this.showPage = false;
         //console.log('Search Book '+text);
         $('#result').html('<h1 align="center">搜索结果</h1><hr>');
         var search_results = this.search;
@@ -102,7 +105,7 @@ function book_source() {
                 }
                 book_read.download(src, path, book_read);
                 page['images'][i] = path + file_name;
-                content += '<img src="' + path + file_name + '">';
+                content += '<img src="' + path + file_name + '"><br>';
             }
             fs.writeFile(page_file, content, function(err){
                 if (err) {
@@ -112,6 +115,9 @@ function book_source() {
                 page_info.downloaded = true;
                 page_info.dumped = page_file;
                 book_read.flushBookIndex(book_info, path_root+'index.json');
+                if (book_read.showPage) {
+                    book_read.showBookPage(title);
+                }
             });
         });
     };
@@ -119,6 +125,7 @@ function book_source() {
     this.updateBookIndex = function(book, update_index){
         var book_info = this.books[book];
         var site_info = this.sites[book_info['site']];
+        this.showPage = false;
         if (book_info) {
             var book_index = book_info['index'];
             var books_root = this.books_root;
@@ -160,6 +167,7 @@ function book_source() {
     };
 
     this.showBookIndex = function(){
+        this.showPage = false;
         var book_info = this.books[this.book];
         var site_info = this.sites[book_info['site']];
         var book_index = book_info['index'];
@@ -179,6 +187,7 @@ function book_source() {
     };
 
     this.showBookList = function(){
+        this.showPage = false;
         $('#panel').html('<a href="javascript:book.showConfigure();">配置</a><span> | </span>' +
                          '<input type="text" id="search_text" />' +
                          '<input type="button" onclick="book.searchBook()" value="搜索" />');
@@ -192,6 +201,7 @@ function book_source() {
     };
 
     this.showConfigure = function(){
+        this.showPage = false;
         $('#panel').html('<a href="javascript:book.showBookList();">书柜</a>');
         $('#result').html('<h1 align="center">配置</h1><hr><h3>代理</h3><br>' +
                           '<lable for="proxy_host">主机:</lable><input type="text" id="proxy_host" />' +
