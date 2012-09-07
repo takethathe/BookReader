@@ -5,24 +5,33 @@ function book_source() {
     this.config = {};
     this.search = {};
     this.showPage = false;
+    this.setNav = function(nav) {
+        $('#panel').html(nav);
+        $('#footer').html(nav);
+    };
+    this.appendNav = function(nav) {
+        $('#panel').append(nav);
+        $('#footer').append(nav);
+    };
     this.showBookPage = function(title) {
         var book_info = this.books[this.book];
         var site_info = this.sites[book_info['site']];
         var page_info = book_info['index'][title];
-        $('#panel').html('<a href="javascript:book.showBookIndex();">目录</a><span> | </span>' +
-                         '<a href="javascript:book.redumpBookPage(\'' + title + '\');">下载</a>');
+        this.setNav('<a href="javascript:book.showBookIndex();">目录</a><span> | </span>' +
+                    '<a href="javascript:book.redumpBookPage(\'' + title + '\');">下载</a>');
         if (typeof page_info['id'] != 'undefined') {
             var id = page_info['id'];
             // Add navigator
             var pre = this.getTitleById(id-1, book_info);
             var next = this.getTitleById(id+1, book_info);
             if (pre.length > 0)
-                $('#panel').append('<span> | </span><a href="javascript:book.showBookPage(\'' +
-                                   pre + '\');">上一页</a>');
+                this.appendNav('<span> | </span><a href="javascript:book.showBookPage(\'' +
+                               pre + '\');">上一页</a>');
             if (next.length > 0)
-                $('#panel').append('<span> | </span><a href="javascript:book.showBookPage(\'' +
-                                   next + '\');">下一页</a>');
+                this.appendNav('<span> | </span><a href="javascript:book.showBookPage(\'' +
+                               next + '\');">下一页</a>');
             this.showPage = true;
+            $('html, body').animate({ scrollTop: 0 }, 0);
         }
         if (page_info['downloaded']) {
             var contents = this.fs.readFileSync(page_info['dumped']);
@@ -171,9 +180,9 @@ function book_source() {
         var book_info = this.books[this.book];
         var site_info = this.sites[book_info['site']];
         var book_index = book_info['index'];
-        $('#panel').html('<a href="javascript:book.showBookList();">书柜</a><span> | </span>' +
-                        '<a href="javascript:book.updateBookIndex(\'' +
-                         this.book + '\', true);">更新</a>');
+        this.setNav('<a href="javascript:book.showBookList();">书柜</a><span> | </span>' +
+                    '<a href="javascript:book.updateBookIndex(\'' +
+                    this.book + '\', true);">更新</a>');
         if (book_info) {
             $('#result').html('<h1 align="center">' +
                               book_info.name + '</h1><hr>');
@@ -188,9 +197,9 @@ function book_source() {
 
     this.showBookList = function(){
         this.showPage = false;
-        $('#panel').html('<a href="javascript:book.showConfigure();">配置</a><span> | </span>' +
-                         '<input type="text" id="search_text" />' +
-                         '<input type="button" onclick="book.searchBook()" value="搜索" />');
+        this.setNav('<a href="javascript:book.showConfigure();">配置</a><span> | </span>' +
+                    '<input type="text" id="search_text" />' +
+                    '<input type="button" onclick="book.searchBook()" value="搜索" />');
         // List all books
         $('#result').html('<h1 align="center">书籍列表</h1><hr>');
         for (var b in this.books) {
@@ -202,7 +211,7 @@ function book_source() {
 
     this.showConfigure = function(){
         this.showPage = false;
-        $('#panel').html('<a href="javascript:book.showBookList();">书柜</a>');
+        this.setNav('<a href="javascript:book.showBookList();">书柜</a>');
         $('#result').html('<h1 align="center">配置</h1><hr><h3>代理</h3><br>' +
                           '<lable for="proxy_host">主机:</lable><input type="text" id="proxy_host" />' +
                           '<lable for="proxy_port">端口:</lable><input type="text" id="proxy_port" />' +

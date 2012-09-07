@@ -18,7 +18,7 @@
         };
         $.get(url, function(data){
             var data_ = $(data);
-            ret['text'] = $('#content', data_).text();
+            ret['text'] = $('#content', data_).html();
             $('div.divimage img', data_).each(function(i, item){
                 var src = $(item).attr('src');
                 if (src && src != '') {
