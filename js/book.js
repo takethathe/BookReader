@@ -95,6 +95,22 @@ function book_source() {
         this.dumpBookPage(book_info, site_info, path_root, title, book_read);
     };
 
+    this.dumpSelected = function() {
+        var book_info = this.books[this.book];
+        var site_info = this.sites[book_info['site']];
+        var path_root = this.books_root + '/' + book_info['site'] + '/' + book_info['name'] + '/';
+        var book_index = book_info['index'];
+        var book_read = this;
+        $('input[type="checkbox"]').each(function(index){
+            var el = $(this);
+            if (el.attr('checked') == 'checked') {
+                var title = el.attr('value');
+                book_index[title].needDownload = true;
+                book_read.dumpBookPage(book_info, site_info, path_root, title, book_read);
+            }
+        });
+    };
+
     this.dumpBookPage = function(book_info, site_info, path_root, title, book_read) {
         var url = require('url');
         var fs = book_read.fs;
@@ -122,8 +138,10 @@ function book_source() {
                     throw err;
                 }
                 page_info.downloaded = true;
+                page_info.needDownload = false;
+                $('#'+page_info.id).attr('checked', false);
                 page_info.dumped = page_file;
-                book_read.flushBookIndex(book_info, path_root+'index.json');
+                book_read.flushBookIndex(book_info, path_root);
                 if (book_read.showPage) {
                     book_read.showBookPage(title);
                 }
@@ -149,13 +167,16 @@ function book_source() {
                     if (!book_index.hasOwnProperty(item.title)) {
                         book_index[item.title] = {
                             'url': item.link,
-                            'id': i
+                            'id': i,
+                            'needDownload': true,
+                            'downloaded': false
                         };
                         if (update_index) {
-                            $('#result').append('<dd><a href="javascript:book.showBookPage(\''+item.title+'\');">'+
-                                                item.title+'</a></dd>');
+                            $('#result').append('<dd><input type="checkbox" id="' + i + '" value="' +item.title+'" />'+
+                                                '<span><a href="javascript:book.showBookPage(\''+item.title+'\');">'+ 
+                                                item.title+'</a></span></dd>');
                         }
-                        dumpBookPage_func(book_info, site_info, path_root, item.title, book_read);
+                        //dumpBookPage_func(book_info, site_info, path_root, item.title, book_read);
                         modified = true;
                     }
                     if (i == size-1 && modified) {
@@ -182,13 +203,18 @@ function book_source() {
         var book_index = book_info['index'];
         this.setNav('<a href="javascript:book.showBookList();">书柜</a><span> | </span>' +
                     '<a href="javascript:book.updateBookIndex(\'' +
-                    this.book + '\', true);">更新</a>');
+                    this.book + '\', true);">更新</a><span> | </span>' +
+                    '<a href="javascript:book.dumpSelected();">下载</a>');
         if (book_info) {
             $('#result').html('<h1 align="center">' +
                               book_info.name + '</h1><hr>');
             for (var title in book_index) {
-                $('#result').append('<dd><a href="javascript:book.showBookPage(\'' +
-                                    title + '\');">' + title + '</a></dd>');
+                var page_info = book_index[title];
+                var checked = page_info.needDownload?'checked="checked"':'';
+                $('#result').append('<dd><input type="checkbox" id="' + page_info.id + 
+                                    '" value="' + title + '" ' + checked + '/>' +
+                                    '<span><a href="javascript:book.showBookPage(\'' +
+                                    title + '\');">' + title + '</a></span></dd>');
             }
         } else {
             alert('Can not find '+this.book);
@@ -341,11 +367,17 @@ function book_source() {
         if (this.book != name) {
             if (this.book != '') {
                 book_info = this.books[this.book];
-                book_index_file = this.books_root + '/' + 
-                    book_info['site'] + '/' + book_info['name'] + '/index.json';
+                book_index_path = '';
+                var path = [this.books_root, book_info['site'], book_info['name']];
+                for (var p in path) {
+                    book_index_path += path[p] + '/';
+                    if (!this.fs.existsSync(book_index_path)) {
+                        this.fs.mkdirSync(book_index_path);
+                    }
+                }
                 book_index = book_info['index'];
                 var book_index_content = JSON.stringify(book_index);
-                this.fs.writeFileSync(book_index_file, book_index_content);
+                this.fs.writeFileSync(book_index_path+'/index.json', book_index_content);
             }
 
             this.book = name;
@@ -389,7 +421,10 @@ function book_source() {
         var book_index = book_info['index'];
         var book_index_content = JSON.stringify(book_index);
         var fs = require('fs');
-        fs.writeFile(index_path, book_index_content, function(err){
+        if (!this.fs.existsSync(index_path)) {
+            this.fs.mkdirSync(index_path);
+        }
+        fs.writeFile(index_path+'index.json', book_index_content, function(err){
             if (err) {
                 console.log(err.message);
                 throw err;
